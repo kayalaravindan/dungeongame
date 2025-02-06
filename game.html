@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Puzzle Dungeon: Card Crawler</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    /* Allow scrolling when content exceeds viewport height */
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    /* ---------- General Page & Font Styles ---------- */
+    body { 
+      font-family: 'Press Start 2P', cursive; 
+      background: linear-gradient(to bottom, #1a1a2e, #16213e);
+      color: #fff;
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      text-align: center;
+    }
+    h1 {
+      color: #4ecca3;
+      text-shadow: 0 0 10px rgba(78, 204, 163, 0.5);
+      margin-bottom: 30px;
+    }
+    h2 {
+      color: #4ecca3;
+      font-size: 1.2em;
+      margin-bottom: 20px;
+      text-shadow: 0 0 5px rgba(78, 204, 163, 0.3);
+    }
+    /* ---------- Grid (Dungeon) Styles ---------- */
+    .grid { 
+      display: grid; 
+      grid-template-columns: repeat(10, 60px); 
+      grid-template-rows: repeat(5, 60px); 
+      gap: 8px; 
+      margin: 20px auto;
+      background: #162447;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    }
+    .cell { 
+      width: 60px; 
+      height: 60px; 
+      border: 2px solid #30475e; 
+      border-radius: 8px;
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      font-size: 30px;
+      transition: all 0.3s ease;
+      background: #1f4068;
+    }
+    .player { 
+      background: linear-gradient(45deg, #4CAF50, #45a049);
+      box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+    }
+    .enemy { 
+      background: linear-gradient(45deg, #f44336, #d32f2f);
+      box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+    }
+    .obstacle { 
+      background: linear-gradient(45deg, #607d8b, #455a64);
+      box-shadow: 0 0 10px rgba(96, 125, 139, 0.5);
+    }
+    .player::after {
+      content: '🧙';
+    }
+    .enemy::after {
+      content: '👾';
+    }
+    .obstacle::after {
+      content: '🪨';
+    }
+    /* ---------- Card Styles (Playing Card Look) ---------- */
+    .card-container { 
+      /* Adjusted margin-top to move the card container higher */
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .card-heading {
+      margin-bottom: 15px;
+    }
+    .cards { 
+      display: flex; 
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .card {
+      width: 120px;
+      height: 180px;
+      border: 2px solid #fff;
+      border-radius: 10px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #1a237e, #283593);
+      color: white;
+      transition: transform 0.2s;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      text-align: center;
+      padding: 10px;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    }
+    .card.attack { 
+      background: linear-gradient(135deg, #c2185b, #e91e63);
+      animation: pulse 2s infinite;
+    }
+    .card.move { 
+      background: linear-gradient(135deg, #1565c0, #1976d2);
+    }
+    .card.teleport { 
+      background: linear-gradient(135deg, #6a1b9a, #7b1fa2);
+    }
+    /* ---------- Button Styles ---------- */
+    .game-button {
+      padding: 15px 30px;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #4ecca3, #45b999);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .game-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    }
+    /* ---------- Page Container Styles ---------- */
+    .page {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 800px;
+    }
+    .page.active {
+      display: flex;
+    }
+    .title-large {
+      font-size: 48px;
+      margin-bottom: 30px;
+      animation: glow 2s ease-in-out infinite alternate;
+    }
+    .game-description {
+      margin: 30px auto;
+      max-width: 600px;
+      line-height: 1.6;
+      color: #b8c6db;
+    }
+    .end-message {
+      font-size: 48px;
+      margin-bottom: 30px;
+      animation: fadeIn 1s ease-in;
+    }
+    /* ---------- Animations ---------- */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    @keyframes glow {
+      from { text-shadow: 0 0 10px rgba(78, 204, 163, 0.5); }
+      to { text-shadow: 0 0 20px rgba(78, 204, 163, 0.8); }
+    }
+    /* ---------- Message Area ---------- */
+    #message {
+      margin-top: 10px;
+      font-size: 18px;
+      text-shadow: 0 0 5px rgba(0,0,0,0.5);
+    }
+    /* Add these new styles */
+    .volume-control {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .volume-slider {
+      -webkit-appearance: none;
+      width: 100px;
+      height: 5px;
+      border-radius: 5px;
+      background: #4ecca3;
+      outline: none;
+    }
+    
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+    }
+    
+    .volume-icon {
+      font-size: 20px;
+      color: #4ecca3;
+    }
+  </style>
+</head>
+<body>
+  <!-- Add audio element -->
+  <audio id="bgMusic" loop>
+    <source src="Background_music.m4a" type="audio/mp4">
+  </audio>
+  
+  <!-- Add volume control -->
+  <div class="volume-control">
+    <span class="volume-icon">🔊</span>
+    <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.1" value="0.5">
+  </div>
+
+  <!-- Landing Page -->
+  <div id="landing-page" class="page active">
+    <h1 class="title-large">Puzzle Dungeon: Card Crawler</h1>
+    <div class="game-description">
+      Welcome brave adventurer! Use your cards wisely to navigate the dungeon, 
+      defeat monsters, and emerge victorious. Move strategically, attack enemies,
+      and survive to win!
+    </div>
+    <button id="startGameButton" class="game-button">Start Adventure</button>
+  </div>
+
+  <!-- Game Page -->
+  <div id="game-page" class="page">
+    <h1>Puzzle Dungeon: Card Crawler</h1>
+    <!-- Message Display -->
+    <div id="message"></div>
+    <!-- Grid Container -->
+    <div id="grid" class="grid"></div>
+    <!-- Card Container -->
+    <div id="card-container" class="card-container"></div>
+  </div>
+
+  <!-- End Screen -->
+  <div id="end-screen" class="page">
+    <div id="end-message" class="end-message"></div>
+    <!-- Buttons will be inserted here dynamically -->
+  </div>
+
+  <script>
+    /***********************
+     * GAME CONSTANTS & VARIABLES
+     ***********************/
+    const gridWidth = 10;
+    const gridHeight = 5;  // 5 rows
+    const HAND_SIZE = 3;
+    let level = 1;
+    let gameState = "playing"; // "playing", "gameover", "win"
+
+    // Game Entities
+    let player = { x: 0, y: gridHeight - 1 }; // start at bottom-left
+    let enemies = [];   // array of objects {x, y}
+    let obstacles = []; // array of objects {x, y}
+
+    // Card System (each card has a name, type, and, for move cards, a direction)
+    const cardPool = [
+      { name: "Move Up", type: "move", direction: "up" },
+      { name: "Move Down", type: "move", direction: "down" },
+      { name: "Move Left", type: "move", direction: "left" },
+      { name: "Move Right", type: "move", direction: "right" },
+      { name: "Attack", type: "attack" },
+      { name: "Teleport", type: "teleport" }
+    ];
+    let hand = [];
+
+    /***********************
+     * PAGE MANAGEMENT
+     ***********************/
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+      document.getElementById(pageId).classList.add('active');
+    }
+
+    /***********************
+     * GAME INITIALIZATION & LEVEL SETUP
+     ***********************/
+    function startGame() {
+      level = 1;
+      gameState = "playing";
+      player = { x: 0, y: gridHeight - 1 };
+      showPage('game-page');
+      initLevel();
+      // Start playing background music
+      bgMusic.play().catch(error => {
+        console.log("Audio autoplay failed:", error);
+      });
+    }
+
+    function initLevel() {
+      // Reset player position each level (bottom-left)
+      player = { x: 0, y: gridHeight - 1 };
+      enemies = [];
+      obstacles = [];
+      // Spawn enemies and obstacles (increase count with level)
+      spawnEnemies(3 + level - 1);
+      spawnObstacles(3 + Math.floor(level/2));
+      drawHand();
+      updateMessage(`Level ${level} - Choose a card to play.`);
+      drawGrid();
+    }
+
+    function spawnEnemies(num) {
+      let count = 0;
+      while (count < num) {
+        let pos = { x: Math.floor(Math.random() * gridWidth), y: Math.floor(Math.random() * gridHeight) };
+        if (!isOccupied(pos.x, pos.y) && !(pos.x === player.x && pos.y === player.y)) {
+          enemies.push(pos);
+          count++;
+        }
+      }
+    }
+
+    function spawnObstacles(num) {
+      let count = 0;
+      while (count < num) {
+        let pos = { x: Math.floor(Math.random() * gridWidth), y: Math.floor(Math.random() * gridHeight) };
+        if (!isOccupied(pos.x, pos.y) && !(pos.x === player.x && pos.y === player.y)) {
+          obstacles.push(pos);
+          count++;
+        }
+      }
+    }
+
+    function isOccupied(x, y) {
+      for (let o of obstacles) {
+        if (o.x === x && o.y === y) return true;
+      }
+      for (let e of enemies) {
+        if (e.x === x && e.y === y) return true;
+      }
+      return false;
+    }
+
+    /***********************
+     * DRAWING THE GRID & CARDS
+     ***********************/
+    function drawGrid() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for (let y = 0; y < gridHeight; y++) {
+        for (let x = 0; x < gridWidth; x++) {
+          let cell = document.createElement('div');
+          cell.classList.add('cell');
+          if (x === player.x && y === player.y) {
+            cell.classList.add('player');
+          } else if (enemies.some(e => e.x === x && e.y === y)) {
+            cell.classList.add('enemy');
+          } else if (obstacles.some(o => o.x === x && o.y === y)) {
+            cell.classList.add('obstacle');
+          }
+          grid.appendChild(cell);
+        }
+      }
+    }
+
+    function drawHand() {
+      hand = [];
+      for (let i = 0; i < HAND_SIZE; i++) {
+        let card = cardPool[Math.floor(Math.random() * cardPool.length)];
+        hand.push(card);
+      }
+      updateHandUI();
+    }
+
+    function updateHandUI() {
+      const container = document.getElementById('card-container');
+      container.innerHTML = "";
+      const heading = document.createElement("h2");
+      heading.classList.add("card-heading");
+      heading.textContent = "Choose a card";
+      container.appendChild(heading);
+      
+      const cardsRow = document.createElement("div");
+      cardsRow.classList.add("cards");
+      hand.forEach((card, index) => {
+        const cardDiv = document.createElement("div");
+        cardDiv.classList.add("card");
+        if (card.type === "move") cardDiv.classList.add("move");
+        if (card.type === "attack") cardDiv.classList.add("attack");
+        if (card.type === "teleport") cardDiv.classList.add("teleport");
+        cardDiv.innerText = card.name;
+        cardDiv.onclick = () => playCard(index);
+        cardsRow.appendChild(cardDiv);
+      });
+      container.appendChild(cardsRow);
+    }
+
+    function updateMessage(text) {
+      document.getElementById('message').textContent = text;
+    }
+
+    /***********************
+     * TURN & ACTION HANDLING
+     ***********************/
+    function playCard(index) {
+      if (gameState !== "playing") return;
+      let card = hand[index];
+      if (card.type === "move") {
+        handleMove(card.direction);
+      } else if (card.type === "attack") {
+        handleAttack();
+      } else if (card.type === "teleport") {
+        handleTeleport();
+      }
+      enemyTurn();
+      drawGrid();
+      checkGameState();
+      if (gameState === "playing") {
+        drawHand();
+      }
+    }
+
+    function handleMove(direction) {
+      let dx = 0, dy = 0;
+      if (direction === "up") dy = -1;
+      else if (direction === "down") dy = 1;
+      else if (direction === "left") dx = -1;
+      else if (direction === "right") dx = 1;
+
+      let newX = player.x + dx;
+      let newY = player.y + dy;
+      if (newX < 0 || newX >= gridWidth || newY < 0 || newY >= gridHeight) {
+        updateMessage("You cannot move off the grid!");
+        return;
+      }
+      if (obstacles.some(obs => obs.x === newX && obs.y === newY)) {
+        updateMessage("An obstacle blocks your way!");
+        return;
+      }
+      player.x = newX;
+      player.y = newY;
+      updateMessage(`Moved ${direction}.`);
+    }
+
+    function handleAttack() {
+      let removed = [];
+      enemies = enemies.filter(enemy => {
+        if (Math.abs(enemy.x - player.x) <= 1 && Math.abs(enemy.y - player.y) <= 1) {
+          removed.push(enemy);
+          return false;
+        }
+        return true;
+      });
+      if (removed.length > 0) {
+        updateMessage(`Attack hit ${removed.length} enemy(ies)!`);
+      } else {
+        updateMessage("Attack missed. No enemy in range.");
+      }
+    }
+
+    function handleTeleport() {
+      let validTiles = [];
+      for (let x = 0; x < gridWidth; x++) {
+        for (let y = 0; y < gridHeight; y++) {
+          if (x === player.x && y === player.y) continue;
+          if (!isOccupied(x, y) && !obstacles.some(o => o.x === x && o.y === y)) {
+            validTiles.push({ x, y });
+          }
+        }
+      }
+      if (validTiles.length > 0) {
+        let pos = validTiles[Math.floor(Math.random() * validTiles.length)];
+        player.x = pos.x;
+        player.y = pos.y;
+        updateMessage("Teleported to a new location!");
+      } else {
+        updateMessage("No valid space to teleport!");
+      }
+    }
+
+    function enemyTurn() {
+      enemies.forEach(enemy => {
+        let dx = player.x - enemy.x;
+        let dy = player.y - enemy.y;
+        let moveX = 0, moveY = 0;
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          moveX = dx > 0 ? 1 : (dx < 0 ? -1 : 0);
+        } else {
+          moveY = dy > 0 ? 1 : (dy < 0 ? -1 : 0);
+        }
+        let newX = enemy.x + moveX;
+        let newY = enemy.y + moveY;
+        if (canEnemyMoveTo(newX, newY)) {
+          enemy.x = newX;
+          enemy.y = newY;
+        } else {
+          if (moveX !== 0) {
+            newX = enemy.x;
+            newY = enemy.y + (dy > 0 ? 1 : (dy < 0 ? -1 : 0));
+          } else if (moveY !== 0) {
+            newX = enemy.x + (dx > 0 ? 1 : (dx < 0 ? -1 : 0));
+            newY = enemy.y;
+          }
+          if (canEnemyMoveTo(newX, newY)) {
+            enemy.x = newX;
+            enemy.y = newY;
+          }
+        }
+      });
+    }
+
+    function canEnemyMoveTo(x, y) {
+      if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) return false;
+      if (obstacles.some(o => o.x === x && o.y === y)) return false;
+      if (enemies.some(e => e.x === x && e.y === y)) return false;
+      return true;
+    }
+
+    /***********************
+     * GAME STATE CHECKS & LEVEL PROGRESSION
+     ***********************/
+    function checkGameState() {
+      for (let enemy of enemies) {
+        if (enemy.x === player.x && enemy.y === player.y) {
+          gameOver();
+          return;
+        }
+      }
+      if (enemies.length === 0) {
+        levelComplete();
+      }
+    }
+
+    function gameOver() {
+      gameState = "gameover";
+      updateMessage("Game Over! An enemy reached you.");
+      showEndScreen(false);
+    }
+
+    function levelComplete() {
+      if (level >= 4) {
+        winGame();
+      } else {
+        updateMessage(`Level ${level} complete! Starting next level...`);
+        level++;
+        setTimeout(initLevel, 1500);
+      }
+    }
+
+    function winGame() {
+      gameState = "win";
+      updateMessage("Congratulations! You defeated the final boss and cleared the dungeon!");
+      showEndScreen(true);
+    }
+
+    function showEndScreen(isWin) {
+      showPage('end-screen');
+      const endScreen = document.getElementById('end-screen');
+      endScreen.innerHTML = "";
+      const endMessage = document.createElement("div");
+      endMessage.id = "end-message";
+      endMessage.classList.add("end-message");
+      if (isWin) {
+        endMessage.style.color = '#4ecca3';
+        endMessage.textContent = 'Victory!';
+      } else {
+        endMessage.style.color = '#f44336';
+        endMessage.textContent = 'Game Over';
+      }
+      endScreen.appendChild(endMessage);
+
+      const buttonContainer = document.createElement("div");
+      buttonContainer.style.display = "flex";
+      buttonContainer.style.gap = "20px";
+      buttonContainer.style.justifyContent = "center";
+
+      if (isWin) {
+        const returnBtn = document.createElement("button");
+        returnBtn.className = "game-button";
+        returnBtn.textContent = "Return to Start";
+        returnBtn.onclick = () => showPage('landing-page');
+        buttonContainer.appendChild(returnBtn);
+      } else {
+        const restartLevelBtn = document.createElement("button");
+        restartLevelBtn.className = "game-button";
+        restartLevelBtn.textContent = "Restart Level";
+        restartLevelBtn.onclick = () => {
+          showPage('game-page');
+          initLevel();
+          gameState = "playing";
+        };
+        const restartGameBtn = document.createElement("button");
+        restartGameBtn.className = "game-button";
+        restartGameBtn.textContent = "Restart Game";
+        restartGameBtn.onclick = () => startGame();
+        buttonContainer.appendChild(restartLevelBtn);
+        buttonContainer.appendChild(restartGameBtn);
+      }
+      endScreen.appendChild(buttonContainer);
+    }
+
+    /***********************
+     * AUDIO HANDLING
+     ***********************/
+    const bgMusic = document.getElementById('bgMusic');
+    const volumeSlider = document.getElementById('volumeSlider');
+    
+    // Set initial volume
+    bgMusic.volume = volumeSlider.value;
+    
+    // Update volume when slider changes
+    volumeSlider.addEventListener('input', (e) => {
+      bgMusic.volume = e.target.value;
+    });
+
+    /***********************
+     * EVENT LISTENERS
+     ***********************/
+    document.getElementById('startGameButton').addEventListener('click', startGame);
+  </script>
+</body>
+</html>
